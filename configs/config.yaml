@@ -1,0 +1,92 @@
+# Option A: Global Single Sensor Assignment (all flows mapped to this sensor)
+sensor_name: "sensor_core_01"   # Sensor name identifier
+sensor_ip: "192.168.1.10"       # Sensor probe IP address
+tag: "production"               # Default primary classification tag
+tag2: "datacenter-1"            # Default secondary classification tag
+enrichments:
+  environment: "production"
+  cluster: "dc1-prod"
+
+# Optional: Explicit custom local/home subnets (in addition to RFC 1918 / RFC 6598 / RFC 4193).
+# Any IP matching these subnets is classified as LAN (lan_ip).
+# home_nets:
+#   - "10.0.0.0/8"
+#   - "172.16.0.0/12"
+#   - "192.168.0.0/16"
+#   - "100.64.0.0/10"
+
+# Option B: Dynamic Subnet-Based Sensor Splitting Rules
+# If enabled, flows are dynamically assigned to a sensor if src_ip (or dst_ip) matches subnets.
+# Falls back to Option A (global sensor_name/sensor_ip/tags/enrichments) if no subnets match.
+sensors:
+  - name: "sensor_dmz"
+    sensor_ip: "192.168.10.1"
+    subnets:
+      - "192.168.10.0/24"
+      - "192.168.20.0/24"
+    tag: "dmz"
+    tag2: "edge"
+    enrichments:
+      security_zone: "dmz_isolated"
+  - name: "sensor_cloud"
+    sensor_ip: "10.100.0.1"
+    subnets:
+      - "10.100.0.0/16"
+    tag: "aws"
+    tag2: "eu-west-1"
+    enrichments:
+      provider: "aws"
+
+system:
+  cores: 0                     # CPU cores to utilize (GOMAXPROCS); 0 = all available host cores
+  cpu_affinity: ""             # Pin process threads to specific core IDs (e.g. "0-3" or "0,2,4,6")
+
+stats:
+  enabled: true
+  socket_path: "/var/run/redborder-flow-agent.sock" # Unix domain socket for live metrics (like redborder-monitor)
+  http_addr: ""                                    # Optional HTTP metrics endpoint (e.g. "127.0.0.1:9100")
+
+capture:
+  interfaces:
+    - "eth0"
+  promiscuous: true
+  snaplen: 1518
+  workers_per_interface: 2
+  buffer_size_mb: 16
+
+analysis:
+  track_open_ports: true
+  track_tcp_metrics: true      # Handshake latency (tcp_rtt), window size
+  extract_tls_sni: true
+  extract_tls_version: true    # TLS 1.3, TLS 1.2
+  extract_http_host: true
+  extract_http_details: true   # HTTP method, status code, user agent
+  extract_dns_domains: true
+  dns_cache_size: 50000
+  # JA4 TLS Client Fingerprint Database (Bot, Threat & Browser classification)
+  # Free curated open-source signatures: configs/ja4_signatures.yaml
+  # Official enterprise commercial database feeds: https://foxio.io/ja4-database/
+  ja4_signatures_file: "configs/ja4_signatures.yaml"
+
+flow:
+  mode: "unidirectional"       # "unidirectional" (emits separate upstream & downstream JSONs) or "bidirectional"
+  active_timeout_sec: 60
+  inactive_timeout_sec: 15
+  max_active_flows: 500000
+  shards: 64
+
+exporter:
+  type: "stdout"               # Options: stdout, kafka, ipfix, netflow9, netflow5, sflow
+  target: "127.0.0.1"          # For NetFlow / IPFIX / sFlow
+  port: 2055
+  engine_id: 1
+  source_id: 1001
+  template_interval_sec: 30
+  sflow_sampling_rate: 1
+
+kafka:
+  brokers:
+    - "127.0.0.1:9092"
+  topic: "rb-flows"            # Unified stream with all directional flow records
+  batch_size: 100
+  compression: "snappy"        # snappy, lz4, gzip, zstd, none

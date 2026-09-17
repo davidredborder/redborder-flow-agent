@@ -1,0 +1,17 @@
+[Unit]
+Description=redborder-flow-agent Network Flow Exporter & Traffic Probe (Instance %i)
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/redborder-flow-agent --config /etc/redborder-flow-agent/%i.yaml --stats-socket /var/run/redborder-flow-agent-%i.sock
+Restart=always
+RestartSec=5s
+LimitNOFILE=65536
+CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN
+AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
+
+[Install]
+WantedBy=multi-user.target

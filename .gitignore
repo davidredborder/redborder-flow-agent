@@ -1,0 +1,44 @@
+# Binaries
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binaries
+*.test
+*.log
+
+# Output of the go coverage tool
+*.out
+
+# Temporary files & IDEs
+.idea/
+.vscode/
+.cache/
+*.swp
+*~
+.DS_Store
+
+# Pcap artifacts
+*.pcap
+*.pcapng
+
+# Build packages and artifacts
+build/
+rpms/
+release-rpms/
+packaging/rpm/SOURCES/
+packaging/rpm/pkgs/
+packaging/rpm/BUILD/
+packaging/rpm/BUILDROOT/
+packaging/rpm/RPMS/
+packaging/rpm/SRPMS/
+*.deb
+*.rpm
+*.spdx.json
+
+# Local test runs & configs
+flow.json
+configs/config_local.yaml

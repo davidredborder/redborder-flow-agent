@@ -1,0 +1,86 @@
+name: RPM Build, SBOM, and Release
+
+on:
+  push:
+    branches:
+      - 'master'
+      - 'main'
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  release:
+    name: Build RPMs with Mock and Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create tag based on VERSION
+        id: create_tag
+        run: |
+          RAW_TAG=$(cat ./VERSION 2>/dev/null || echo "0.1.0")
+          TAG=$(echo "$RAW_TAG" | tr -d '\r\n' | tr -d 'v' | tr '-' '.')
+          echo "TAG=$TAG" >> $GITHUB_ENV
+        shell: bash
+
+      - name: Run Rocky Linux Builder Container
+        run: |
+          docker rm -f builder 2>/dev/null || true
+          docker run --privileged -d --name builder --network host rockylinux:9 /bin/sleep infinity
+
+      - name: Install build tools RPM
+        run: |
+          docker cp ./ builder:/build
+          docker exec builder bash -c "yum install -y epel-release && yum install -y --allowerasing make git mock curl tar rpm-build"
+          docker exec builder bash -c "rm -rf /etc/mock/default.cfg"
+
+      - name: Setup RedBorder SDK
+        run: |
+          docker exec builder bash -c "curl https://raw.githubusercontent.com/redBorder/repoinit/master/sdk9.cfg > /build/sdk9.cfg"
+          docker exec builder bash -c "echo \"config_opts['use_host_resolv'] = True\" >> /build/sdk9.cfg"
+          docker exec builder bash -c "ln -s /build/sdk9.cfg /etc/mock/default.cfg"
+
+      - name: Build Standard RPM using Mock
+        run: |
+          mkdir -p ./rpms
+          docker exec builder bash -c "git config --global --add safe.directory /build"
+          docker exec builder bash -c "cd /build/ && VERSION=${{ env.TAG }} make -C packaging/rpm rpm WITH_NDPI=0 WITH_NDPI_STATIC=0"
+          docker cp builder:/build/packaging/rpm/pkgs/. ./rpms/standard/
+
+      - name: Build Shared nDPI RPM using Mock
+        run: |
+          docker exec builder bash -c "cd /build/ && VERSION=${{ env.TAG }} make -C packaging/rpm rpm WITH_NDPI=1 WITH_NDPI_STATIC=0"
+          docker cp builder:/build/packaging/rpm/pkgs/. ./rpms/ndpi-shared/
+
+      - name: Build Static nDPI 6.0 RPM using Mock
+        run: |
+          docker exec builder bash -c "cd /build/ && VERSION=${{ env.TAG }} make -C packaging/rpm rpm WITH_NDPI=0 WITH_NDPI_STATIC=1 NDPI_VERSION=6.0"
+          docker cp builder:/build/packaging/rpm/pkgs/. ./rpms/ndpi-static/
+
+      - name: Collect and Rename RPMs
+        run: |
+          sudo chown -R $USER:$USER ./rpms 2>/dev/null || true
+          mkdir -p ./release-rpms
+          # Collect all built binary RPMs
+          find ./rpms -type f -name '*.rpm' -not -name '*.src.rpm' -exec cp {} ./release-rpms/ \;
+          sudo chown -R $USER:$USER ./release-rpms 2>/dev/null || true
+          ls -lh ./release-rpms/
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        if: (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') && env.GITHUB_TOKEN != ''
+        with:
+          files: ./release-rpms/*.rpm
+          tag_name: v${{ env.TAG }}
+          name: Release v${{ env.TAG }}
+          generate_release_notes: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

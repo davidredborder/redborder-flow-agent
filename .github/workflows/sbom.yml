@@ -1,0 +1,57 @@
+name: Generate SBOM
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  sbom:
+    name: Generate SBOM
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed to attach SBOM to releases
+      id-token: write   # needed for dependency graph submission
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Generate SBOM and submit to Dependency Graph
+        uses: anchore/sbom-action@v0
+        with:
+          format: spdx-json
+          output-file: redborder-flow-agent-sbom.spdx.json
+          dependency-snapshot: ${{ !env.ACT }}
+          upload-artifact: ${{ !env.ACT }}
+
+      - name: Scan SBOM with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: sbom
+          image-ref: redborder-flow-agent-sbom.spdx.json
+          exit-code: '0'
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get Version
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        run: echo "TAG=$(cat ./VERSION | tr -d '\r\n')" >> $GITHUB_ENV
+
+      - name: Attach SBOM to GitHub Release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: redborder-flow-agent-sbom.spdx.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload SBOM as workflow artifact
+        if: ${{ !env.ACT }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: redborder-flow-agent-sbom-spdx
+          path: redborder-flow-agent-sbom.spdx.json
