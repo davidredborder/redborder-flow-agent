@@ -49,6 +49,20 @@ run: build
 rpm:
 	$(MAKE) -C packaging/rpm rpm
 
+rpm-ndpi:
+	$(MAKE) -C packaging/rpm rpm WITH_NDPI=1 WITH_NDPI_STATIC=0
+
+rpm-ndpi-static:
+	$(MAKE) -C packaging/rpm rpm WITH_NDPI=0 WITH_NDPI_STATIC=1 NDPI_VERSION=6.0
+
+rpm-all:
+	@echo "=== Building Standard RPM ==="
+	$(MAKE) -C packaging/rpm rpm WITH_NDPI=0 WITH_NDPI_STATIC=0
+	@echo "=== Building Shared nDPI RPM ==="
+	$(MAKE) -C packaging/rpm rpm WITH_NDPI=1 WITH_NDPI_STATIC=0
+	@echo "=== Building Static nDPI 6.0 RPM ==="
+	$(MAKE) -C packaging/rpm rpm WITH_NDPI=0 WITH_NDPI_STATIC=1 NDPI_VERSION=6.0
+
 srpm:
 	$(MAKE) -C packaging/rpm srpm
 
