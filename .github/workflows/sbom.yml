@@ -51,7 +51,7 @@ jobs:
 
       - name: Upload SBOM as workflow artifact
         if: ${{ !env.ACT }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: redborder-flow-agent-sbom-spdx
           path: redborder-flow-agent-sbom.spdx.json
