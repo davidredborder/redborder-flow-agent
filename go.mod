@@ -1,10 +1,10 @@
 module github.com/redborder/redborder-flow-agent
 
-go 1.24.0
+go 1.26.0
 
 require (
 	github.com/segmentio/kafka-go v0.4.51
-	golang.org/x/sys v0.30.0
+	golang.org/x/sys v0.49.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
