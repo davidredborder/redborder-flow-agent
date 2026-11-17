@@ -69,8 +69,8 @@ func TestFormatJSONRecord(t *testing.T) {
 	if jsonRec.OS != "Linux" || jsonRec.JA4 != "t13d1516h2_8daaf6152771_e562703ab85f" {
 		t.Fatalf("unexpected OS/JA4 values: %s / %s", jsonRec.OS, jsonRec.JA4)
 	}
-	if jsonRec.Sensor != "sensor_edge" || jsonRec.SensorName != "sensor_edge" || jsonRec.SensorIP != "192.168.1.10" {
-		t.Fatalf("unexpected sensor values: %s/%s/%s", jsonRec.Sensor, jsonRec.SensorName, jsonRec.SensorIP)
+	if jsonRec.SensorName != "sensor_edge" || jsonRec.SensorIP != "192.168.1.10" {
+		t.Fatalf("unexpected sensor values: %s/%s", jsonRec.SensorName, jsonRec.SensorIP)
 	}
 	if jsonRec.Tag != "production" || jsonRec.Tag2 != "dc_north" {
 		t.Fatalf("unexpected tags: %s/%s", jsonRec.Tag, jsonRec.Tag2)
@@ -86,12 +86,6 @@ func TestFormatJSONRecord(t *testing.T) {
 	}
 	if !jsonRec.IsOpenPort {
 		t.Fatalf("expected IsOpenPort true")
-	}
-	if jsonRec.Website != "app.redborder.com/login" {
-		t.Fatalf("expected Website app.redborder.com/login, got %s", jsonRec.Website)
-	}
-	if jsonRec.TotalBytes != 12200 {
-		t.Fatalf("expected TotalBytes 12200, got %d", jsonRec.TotalBytes)
 	}
 
 	if jsonRec.Bytes != 12200 || jsonRec.Pkts != 14 {
@@ -122,9 +116,6 @@ func TestFormatJSONRecord(t *testing.T) {
 	if jsonRec.Host != "app.redborder.com/login" {
 		t.Fatalf("expected Host app.redborder.com/login, got %s", jsonRec.Host)
 	}
-	if jsonRec.BiflowDirection != "initiator" {
-		t.Fatalf("expected BiflowDirection initiator, got %s", jsonRec.BiflowDirection)
-	}
 
 	// Test flattened JSON output
 	data, err := json.Marshal(jsonRec)
@@ -153,8 +144,11 @@ func TestFormatJSONRecord(t *testing.T) {
 	if rawMap["host"] != "app.redborder.com/login" {
 		t.Fatalf("expected host in rawMap, got %v", rawMap["host"])
 	}
-	if rawMap["biflow_direction"] != "initiator" {
-		t.Fatalf("expected biflow_direction in rawMap, got %v", rawMap["biflow_direction"])
+	// Duplicates of host, application_id_name, direction, bytes, pkts, l4_proto, sensor_name, client_mac and flow_state are not sent
+	for _, dup := range []string{"website", "app_protocol", "biflow_direction", "total_bytes", "total_packets", "protocol", "sensor", "src_mac", "flow_end_reason"} {
+		if _, ok := rawMap[dup]; ok {
+			t.Fatalf("expected no %s in rawMap (duplicate field), got %v", dup, rawMap[dup])
+		}
 	}
 	if rawMap["type"] != "netflowv10" {
 		t.Fatalf("expected type 'netflowv10' in rawMap, got %v", rawMap["type"])

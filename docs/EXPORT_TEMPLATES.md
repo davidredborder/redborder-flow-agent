@@ -33,8 +33,8 @@ Sent periodically every `template_interval_sec` (default 30s) or upon exporter s
 | 7 | **11** | `destinationTransportPort` | 2 | `unsigned16` | `wan_l4_port` |
 | 8 | **4** | `protocolIdentifier` | 1 | `unsigned8` | Layer 4 Protocol (TCP=6, UDP=17, ICMP=1) |
 | 9 | **6** | `tcpControlBits` | 1 | `unsigned8` | Bitwise TCP control flags (`SYN`, `ACK`, `FIN`, `RST`, `PSH`) |
-| 10 | **1** | `octetDeltaCount` | 8 | `unsigned64` | `bytes` / `total_bytes` |
-| 11 | **2** | `packetDeltaCount` | 8 | `unsigned64` | `pkts` / `total_packets` |
+| 10 | **1** | `octetDeltaCount` | 8 | `unsigned64` | `bytes` |
+| 11 | **2** | `packetDeltaCount` | 8 | `unsigned64` | `pkts` |
 | 12 | **61** | `flowDirection` | 1 | `unsigned8` | `0` = Ingress / Downstream, `1` = Egress / Upstream |
 | 13 | **150** | `flowStartSeconds` | 4 | `dateTimeSeconds` | Start epoch timestamp |
 | 14 | **151** | `flowEndSeconds` | 4 | `dateTimeSeconds` | End epoch timestamp |
@@ -173,20 +173,16 @@ The Kafka exporter streams unified JSON documents formatted for RedBorder's anal
 | `type` | `string` | Always | Protocol identifier, e.g. `"netflowv10"` |
 | `conversation` | `string` | Always | Canonical bidirectional conversation key: `<src_ip>:<src_port>-<dst_ip>:<dst_port>-<proto>` |
 | `direction` | `string` | Always | `"upstream"` (client to server) or `"downstream"` (server to client) |
-| `biflow_direction` | `string` | Optional | `"initiator"` or `"reverse initiator"` |
 | `flow_state` | `string` | Optional | `"SYN_SENT"`, `"ESTABLISHED"`, `"CLOSED_FIN"`, `"CLOSED_RST"`, `"UDP_ACTIVE"`, etc. |
-| `flow_end_reason` | `string` | Optional | `"idle timeout"`, `"active timeout"`, `"fin"`, `"rst"` |
 | `ip_protocol_version` | `integer` | Always | `4` (IPv4) or `6` (IPv6) |
-| `protocol` | `integer` | Always | Layer 4 protocol number (`6` = TCP, `17` = UDP, `1` = ICMP) |
 | `proto_name` | `string` | Always | Protocol name: `"TCP"`, `"UDP"`, `"ICMP"` |
-| `l4_proto` | `integer` | Always | Layer 4 protocol number |
-| `bytes` / `total_bytes` | `integer` | Always | Byte volume transferred in this directional record |
-| `pkts` / `total_packets` | `integer` | Always | Number of packets transferred in this directional record |
+| `l4_proto` | `integer` | Always | Layer 4 protocol number (`6` = TCP, `17` = UDP, `1` = ICMP) |
+| `bytes` | `integer` | Always | Byte volume transferred in this directional record |
+| `pkts` | `integer` | Always | Number of packets transferred in this directional record |
 | `lan_ip` | `string` | Always | Local / Internal endpoint IPv4/IPv6 address |
 | `wan_ip` | `string` | Always | Remote / External endpoint IPv4/IPv6 address |
 | `lan_l4_port` | `integer` | Always | Local / LAN L4 port number |
 | `wan_l4_port` | `integer` | Always | Remote / WAN L4 port number |
-| `src_mac` | `string` | Always | Ethernet source MAC address |
 | `dst_mac` | `string` | Always | Ethernet destination MAC address |
 | `client_mac` | `string` | Optional | True client endpoint MAC address |
 | `lan_vlan` | `string` | Optional | 802.1Q VLAN Tag of LAN endpoint (e.g. `"70"`, `"150"`) |
@@ -206,11 +202,9 @@ The Kafka exporter streams unified JSON documents formatted for RedBorder's anal
 | `tcp_window` | `integer` | Optional | TCP advertised window size |
 | `tcp_rtt` | `integer` | Optional | TCP 3-way handshake round-trip latency in milliseconds |
 | `is_open_port` | `boolean` | Always | `true` if port had an active/established connection |
-| `app_protocol` | `string` | Optional | Detected L7 protocol: `"TLS"`, `"HTTP"`, `"DNS"`, `"SSH"`, etc. |
 | `application_id_name` | `string` | Optional | Application identifier name, e.g. `"tls"`, `"dns"`, `"13:453"` |
 | `engine_id_name` | `string` | Optional | NBAR Engine ID, e.g. `"13"` |
 | `host` | `string` | Optional | TLS SNI hostname, HTTP `Host` header, or DNS domain |
-| `website` | `string` | Optional | Resolved website or domain name |
 | `tls_version` | `string` | Optional | Detected TLS version: `"TLS 1.3"`, `"TLS 1.2"` |
 | `ja4` | `string` | Optional | 36-char JA4 TLS client fingerprint string (e.g. `"t13d1716h2_..."`) |
 | `ja4_r` | `string` | Optional | Raw / unhashed JA4 client fingerprint representation |
@@ -224,7 +218,7 @@ The Kafka exporter streams unified JSON documents formatted for RedBorder's anal
 | `http_uri` | `string` | Optional | HTTP URI path requested |
 | `http_status_code` | `integer` | Optional | HTTP response status code (`200`, `404`, etc.) |
 | `http_user_agent` | `string` | Optional | HTTP User-Agent header string |
-| `sensor` / `sensor_name` | `string` | Optional | Matched sensor probe name |
+| `sensor_name` | `string` | Optional | Matched sensor probe name |
 | `sensor_ip` | `string` | Optional | Probe IP address |
 | `tag` / `tag2` | `string` | Optional | Primary and secondary classification tags |
 | `<custom_enrichments>` | `string` | Optional | Flattened custom key-value pairs (e.g. `sensor_uuid`, `proxy_uuid`) |
@@ -234,9 +228,7 @@ The Kafka exporter streams unified JSON documents formatted for RedBorder's anal
 ```json
 {
   "type": "netflowv10",
-  "app_protocol": "TLS",
   "application_id_name": "tls",
-  "biflow_direction": "reverse initiator",
   "bytes": 6584,
   "client_app": "Script / CLI Tool (No ALPN)",
   "client_mac": "00:0c:29:4d:af:3b",
@@ -248,7 +240,6 @@ The Kafka exporter streams unified JSON documents formatted for RedBorder's anal
   "duration": 167,
   "end_time": 1789572136,
   "engine_id_name": "13",
-  "flow_end_reason": "rst",
   "flow_state": "CLOSED_RST",
   "host": "erchef.service.redborder.cluster",
   "ifindex": 4,
@@ -271,12 +262,9 @@ The Kafka exporter streams unified JSON documents formatted for RedBorder's anal
   "output_vrf": 0,
   "pkts": 14,
   "proto_name": "TCP",
-  "protocol": 6,
-  "sensor": "flow1",
   "sensor_ip": "10.10.10.2",
   "sensor_name": "flow1",
   "sensor_uuid": "d7b95a1b-10c7-47c5-8987-e9bc21971ced",
-  "src_mac": "00:0c:29:4d:af:3b",
   "src_ttl": 60,
   "start_time": 1789572135,
   "tcp_flags": "SYN|ACK|FIN|RST|PSH",
@@ -284,15 +272,12 @@ The Kafka exporter streams unified JSON documents formatted for RedBorder's anal
   "timestamp": 1789572137,
   "tls_version": "TLS 1.3",
   "tos": 0,
-  "total_bytes": 6584,
-  "total_packets": 14,
   "wan_interface": 4,
   "wan_interface_description": "eth2",
   "wan_interface_name": "eth2",
   "wan_ip": "10.1.33.90",
   "wan_l4_port": 443,
-  "wan_vlan": "20",
-  "website": "erchef.service.redborder.cluster"
+  "wan_vlan": "20"
 }
 ```
 

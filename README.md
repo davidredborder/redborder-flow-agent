@@ -21,7 +21,7 @@ A high-performance, multi-core network probe and flow exporter written in Go. Ca
   - **HTTP Inspection**: Full URL reconstruction (`Host` + `URI`), request method, status codes, and `User-Agent`.
   - **DNS Snooping**: Real-time IP-to-Domain mapping cache from DNS query/response traffic.
 - **nDPI Deep Packet Inspection (Optional CGO Mode)**:
-  - Deep packet classification recognizing 350+ application protocols (Netflix, YouTube, BitTorrent, Zoom, WireGuard, SSH, Telegram, etc.) while preserving exact domain extraction (`website`).
+  - Deep packet classification recognizing 350+ application protocols (Netflix, YouTube, BitTorrent, Zoom, WireGuard, SSH, Telegram, etc.) while preserving exact domain extraction (`host`).
 - **Export Protocols**:
   - **Apache Kafka & stdout**: Direct streaming of structured JSON flow records with compression (`snappy`, `lz4`, `gzip`, `zstd`).
   - **IPFIX (RFC 7011)**: Template exporter supporting MACs, VLANs, standard IEs, `isOpenPort` (IE `301`), `tcpRoundTripTime` (IE `302`), `httpHostName` (IE `456`), and `applicationName` (IE `95`).
@@ -101,7 +101,6 @@ When streaming directly to Apache Kafka or stdout, `redborder-flow-agent` emits 
   "ip_protocol_version": 4,
   "l4_proto": 6,
   "direction": "downstream",
-  "biflow_direction": "reverse initiator",
   "application_id_name": "13:453",
   "engine_id_name": "13",
   "host": "google.com",
@@ -109,7 +108,6 @@ When streaming directly to Apache Kafka or stdout, `redborder-flow-agent` emits 
   "wan_ip": "216.58.205.37",
   "lan_l4_port": 53282,
   "wan_l4_port": 443,
-  "src_mac": "00:50:56:bf:01:23",
   "dst_mac": "b4:2e:99:6f:dc:19",
   "client_mac": "00:50:56:bf:01:23",
   "vlan": 100,
@@ -125,7 +123,6 @@ When streaming directly to Apache Kafka or stdout, `redborder-flow-agent` emits 
   "wan_interface_description": "eth0",
   "input_vrf": 0,
   "output_vrf": 0,
-  "flow_end_reason": "idle timeout",
   "sensor_name": "sensor_core_01",
   "sensor_ip": "10.1.50.20",
   "bytes": 52,
@@ -135,10 +132,7 @@ When streaming directly to Apache Kafka or stdout, `redborder-flow-agent` emits 
   "end_time": 1789469658,
   "duration": 5000,
   "conversation": "10.1.33.138:53282-216.58.205.37:443-6",
-  "protocol": 6,
   "proto_name": "TCP",
-  "total_bytes": 52,
-  "total_packets": 1,
   "tcp_flags": "ACK|PSH",
   "tcp_rtt": 18,
   "tcp_window": 64240,
@@ -164,7 +158,6 @@ When streaming directly to Apache Kafka or stdout, `redborder-flow-agent` emits 
 | **`l4_proto`** | Numeric Layer 4 protocol (e.g. `6` for TCP, `17` for UDP) | pmacct / redBorder WebUI |
 | **`ip_protocol_version`** | IP version (`4` or `6`) | pmacct / redBorder WebUI |
 | **`direction`** | `"upstream"` (LAN $\to$ WAN) or `"downstream"` (WAN $\to$ LAN) | redBorder WebUI / Direction Filter |
-| **`biflow_direction`** | `"initiator"` (upstream) or `"reverse initiator"` (downstream) | pmacct / Druid / WebUI |
 | **`application_id_name`** | Application identifier in `"<engine_id>:<app_id>"` format (e.g. `"13:453"`, `"13:91"`) | nDPI / pmacct / f2k / WebUI |
 | **`engine_id_name`** | Classification engine ID (e.g. `"13"` for nDPI/NBAR) | pmacct / redBorder WebUI |
 | **`host`** | TLS SNI, HTTP Host, or DNS domain | redBorder WebUI (`host`) |
@@ -223,8 +216,8 @@ In `redborder-flow-agent`, network sessions are tracked statefully in memory and
    - `dst_ip` / `dst_port` is **strictly the Remote / External network** (e.g. public internet IP or foreign subnet).
    - This mapping is fixed across both upstream and downstream flow records. Even for **inbound sessions** (e.g. external clients connecting to an internal reverse proxy), the reverse proxy (`10.1.150.2`) is always `src_ip` and the external client (`81.45.89.232`) is always `dst_ip`.
 2. **Direction Identification**:
-   - `direction: "upstream"` (`biflow_direction: "initiator"`) $\to$ Egress traffic flowing from Local (`src_ip`) to Remote (`dst_ip`).
-   - `direction: "downstream"` (`biflow_direction: "reverse initiator"`) $\to$ Ingress traffic flowing from Remote (`dst_ip`) to Local (`src_ip`).
+   - `direction: "upstream"` $\to$ Egress traffic flowing from Local (`src_ip`) to Remote (`dst_ip`).
+   - `direction: "downstream"` $\to$ Ingress traffic flowing from Remote (`dst_ip`) to Local (`src_ip`).
 3. **Logstash Normalization**:
    - Because `src_ip` is guaranteed to be the local network IP, Logstash pipelines can directly rename `src_ip` $\to$ `lan_ip` and `dst_ip` $\to$ `wan_ip` for redBorder WebUI and Druid indexing without conditional logic.
 4. **Conversation Tagging**:

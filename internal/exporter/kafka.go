@@ -25,8 +25,6 @@ type JSONFlowRecord struct {
 	Pkts                     uint64            `json:"pkts"`                                // Packet count (pmacct / redBorder format)
 	InputVRF                 uint32            `json:"input_vrf"`                           // Input VRF ID
 	OutputVRF                uint32            `json:"output_vrf"`                          // Output VRF ID
-	FlowEndReason            string            `json:"flow_end_reason,omitempty"`           // "idle timeout", "active timeout", "rst", "fin"
-	BiflowDirection          string            `json:"biflow_direction,omitempty"`          // "initiator" or "reverse initiator"
 	ApplicationIDName        string            `json:"application_id_name,omitempty"`       // e.g. "13:453", "13:91", "13:7"
 	EngineIDName             string            `json:"engine_id_name,omitempty"`            // e.g. "13"
 	Host                     string            `json:"host,omitempty"`                      // TLS SNI, HTTP Host, or DNS domain
@@ -49,7 +47,6 @@ type JSONFlowRecord struct {
 	Duration                 int64             `json:"duration"`                            // Flow duration in milliseconds
 	Interface                string            `json:"interface"`
 	IfIndex                  uint32            `json:"ifindex"`
-	Sensor                   string            `json:"sensor,omitempty"`
 	SensorName               string            `json:"sensor_name,omitempty"`
 	SensorIP                 string            `json:"sensor_ip,omitempty"`
 	Tag                      string            `json:"tag,omitempty"`
@@ -57,21 +54,16 @@ type JSONFlowRecord struct {
 	Enrichments              map[string]string `json:"-"`                                   // Flattened into top-level JSON output
 	Direction                string            `json:"direction"`                           // "upstream" or "downstream"
 	Conversation             string            `json:"conversation"`                        // Canonical bidirectional conversation key
-	SrcMAC                   string            `json:"src_mac"`
 	DstMAC                   string            `json:"dst_mac"`
-	Protocol                 uint8             `json:"protocol"`
 	ProtoName         string            `json:"proto_name"`
 	TCPFlags          string            `json:"tcp_flags,omitempty"`
 	TOS               uint8             `json:"tos"`
 	SrcTTL            uint8             `json:"src_ttl,omitempty"`
 	DstTTL            uint8             `json:"dst_ttl,omitempty"`
-	TotalPackets      uint64            `json:"total_packets"`
-	TotalBytes        uint64            `json:"total_bytes"`
 	IsOpenPort        bool              `json:"is_open_port"`
 	FlowState         string            `json:"flow_state,omitempty"`
 	TCPRTT            int64             `json:"tcp_rtt,omitempty"` // Handshake latency (ms)
 	TCPWindow         uint16            `json:"tcp_window,omitempty"`
-	Website           string            `json:"website,omitempty"`
 	TLSVersion        string            `json:"tls_version,omitempty"`
 	JA4               string            `json:"ja4,omitempty"`
 	JA4_r             string            `json:"ja4_r,omitempty"`
@@ -85,7 +77,6 @@ type JSONFlowRecord struct {
 	HTTPURI           string            `json:"http_uri,omitempty"`
 	HTTPStatusCode    int               `json:"http_status_code,omitempty"`
 	HTTPUserAgent     string            `json:"http_user_agent,omitempty"`
-	AppProtocol       string            `json:"app_protocol,omitempty"`
 }
 
 // MarshalJSON flattens enrichments into the top-level JSON object.
@@ -258,14 +249,6 @@ func formatJSONRecord(r *flow.Record) JSONFlowRecord {
 		ipProtoVer = 6
 	}
 
-	flowEndReason := "idle timeout"
-	switch r.FlowState {
-	case "CLOSED_RST":
-		flowEndReason = "rst"
-	case "CLOSED_FIN":
-		flowEndReason = "fin"
-	}
-
 	var srcIPStr, dstIPStr string
 	if r.SrcIP != nil {
 		srcIPStr = r.SrcIP.String()
@@ -306,11 +289,6 @@ func formatJSONRecord(r *flow.Record) JSONFlowRecord {
 		appIDName = "dhcp"
 	}
 
-	biflowDir := "initiator"
-	if direction == "downstream" {
-		biflowDir = "reverse initiator"
-	}
-
 	lanIfName := r.Interface
 	if lanIfName == "" {
 		lanIfName = fmt.Sprintf("%d", r.IfIndex)
@@ -339,8 +317,6 @@ func formatJSONRecord(r *flow.Record) JSONFlowRecord {
 		Pkts:                     r.TotalPackets,
 		InputVRF:                 0,
 		OutputVRF:                0,
-		FlowEndReason:            flowEndReason,
-		BiflowDirection:          biflowDir,
 		ApplicationIDName:        appIDName,
 		EngineIDName:             engineIDName,
 		Host:                     r.Website,
@@ -363,7 +339,6 @@ func formatJSONRecord(r *flow.Record) JSONFlowRecord {
 		Duration:                 r.LastSeen.Sub(r.StartTime).Milliseconds(),
 		Interface:                r.Interface,
 		IfIndex:                  r.IfIndex,
-		Sensor:                   r.Sensor,
 		SensorName:               r.SensorName,
 		SensorIP:                 r.SensorIP,
 		Tag:                      r.Tag,
@@ -371,21 +346,16 @@ func formatJSONRecord(r *flow.Record) JSONFlowRecord {
 		Enrichments:              r.ExtraEnrichments,
 		Direction:                direction,
 		Conversation:             conversation,
-		SrcMAC:                   srcMACStr,
 		DstMAC:                   dstMACStr,
-		Protocol:                 r.IPProto,
 		ProtoName:                protoName,
 		TCPFlags:                 flagsStr,
 		TOS:                      r.TOS,
 		SrcTTL:                   r.SrcTTL,
 		DstTTL:                   r.DstTTL,
-		TotalPackets:             r.TotalPackets,
-		TotalBytes:               r.TotalBytes,
 		IsOpenPort:               r.IsOpenPort,
 		FlowState:                r.FlowState,
 		TCPRTT:                   r.TCPRTTMs,
 		TCPWindow:                r.TCPWindowSize,
-		Website:                  r.Website,
 		TLSVersion:               r.TLSVersion,
 		JA4:                      r.JA4,
 		JA4_r:                    r.JA4_r,
@@ -399,7 +369,6 @@ func formatJSONRecord(r *flow.Record) JSONFlowRecord {
 		HTTPURI:                  r.HTTPURI,
 		HTTPStatusCode:           r.HTTPStatusCode,
 		HTTPUserAgent:            r.HTTPUserAgent,
-		AppProtocol:              r.AppProtocol,
 	}
 }
 
